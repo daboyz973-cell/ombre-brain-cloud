@@ -1,54 +1,69 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-from typing import Optional
 import time
 
 app = FastAPI()
 
-# ====== 内存（先用临时版，后面再换数据库）======
 memory = []
 
 
-# ====== Claude 输入结构 ======
-class ClaudeRequest(BaseModel):
-    user_text: str
-    session_id: Optional[str] = "default"
+class ChatRequest(BaseModel):
+    text: str
+    session_id: str = "default"
 
 
-# ====== 写入记忆 ======
-@app.post("/claude/remember")
-def claude_remember(req: ClaudeRequest):
+# ===== 写入记忆 =====
+@app.post("/remember")
+def remember(req: ChatRequest):
     memory.append({
-        "text": req.user_text,
+        "text": req.text,
         "session_id": req.session_id,
         "time": time.time()
     })
 
     return {
-        "status": "ok",
-        "saved": req.user_text,
+        "status": "saved",
         "total": len(memory)
     }
 
 
-# ====== Claude 读取记忆 ======
-@app.get("/claude/memory")
-def claude_memory(session_id: str = "default"):
-    result = [
+# ===== 读取记忆 =====
+@app.get("/memory")
+def get_memory(session_id: str = "default"):
+    data = [
         m for m in memory
         if m["session_id"] == session_id
     ]
 
     return {
-        "session_id": session_id,
-        "memory": result,
-        "count": len(result)
+        "memory": data
     }
 
 
-# ====== 健康检查 ======
+# ===== 模拟“AI回复”（Claude替代版）=====
+@app.post("/chat")
+def chat(req: ChatRequest):
+
+    # 找相关记忆
+    related = [
+        m["text"] for m in memory
+        if req.text in m["text"] or m["text"] in req.text
+    ]
+
+    reply = "我记住了你的话。"
+
+    if related:
+        reply += " 我想起你之前说过：" + "；".join(related[:3])
+
+    return {
+        "reply": reply,
+        "memory_used": len(related)
+    }
+
+
+# ===== 健康检查 =====
 @app.get("/")
 def root():
-    return {
+    return {"status": "brain cloud v2 running"}
         "status": "claude brain cloud running"
     }
