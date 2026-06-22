@@ -1,63 +1,36 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 import sqlite3
-from typing import List
 
 app = FastAPI()
 
-# ======================
-# 数据库初始化
-# ======================
 conn = sqlite3.connect("brain.db", check_same_thread=False)
 cursor = conn.cursor()
 
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS memory (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    session_id TEXT,
-    text TEXT
-)
-""")
-conn.commit()
 
-
-# ======================
-# 数据模型
-# ======================
 class MemoryItem(BaseModel):
     session_id: str
     text: str
 
 
-# ======================
-# 根接口
-# ======================
 @app.get("/")
 def root():
-    return {"status": "brain cloud v3 (persistent)"}
+    return {"status": "brain cloud v3.1 smart mode"}
 
 
-# ======================
-# 写入记忆（永久存储）
-# ======================
+# 写入
 @app.post("/remember")
 def remember(item: MemoryItem):
-
     cursor.execute(
         "INSERT INTO memory (session_id, text) VALUES (?, ?)",
         (item.session_id, item.text)
     )
     conn.commit()
 
-    return {
-        "ok": True,
-        "session": item.session_id
-    }
+    return {"ok": True}
 
 
-# ======================
-# 读取记忆（多设备同步）
-# ======================
+# 读取全部
 @app.get("/memory/{session_id}")
 def get_memory(session_id: str):
 
@@ -66,9 +39,44 @@ def get_memory(session_id: str):
         (session_id,)
     )
 
-    rows = cursor.fetchall()
+    data = [r[0] for r in cursor.fetchall()]
 
     return {
-        "session": session_id,
-        "memory": [r[0] for r in rows]
+        "memory": data,
+        "count": len(data)
+    }
+
+
+# 🧠 智能搜索（不需要AI）
+@app.get("/search")
+def search(q: str, session_id: str):
+
+    cursor.execute(
+        "SELECT text FROM memory WHERE session_id=?",
+        (session_id,)
+    )
+
+    data = [r[0] for r in cursor.fetchall()]
+
+    result = [m for m in data if q.lower() in m.lower()]
+
+    return {
+        "query": q,
+        "results": result
+    }
+
+
+# 🧠 自动总结（简化版）
+@app.get("/summary/{session_id}")
+def summary(session_id: str):
+
+    cursor.execute(
+        "SELECT text FROM memory WHERE session_id=?",
+        (session_id,)
+    )
+
+    data = [r[0] for r in cursor.fetchall()]
+
+    return {
+        "summary": "；".join(data[-5:])  # 最近5条
     }
