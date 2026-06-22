@@ -43,6 +43,3 @@ def chat(q: str = ""):
         "reply": "我收到了：" + q,
         "memory_count": len(memory)
     }
-    return {
-        "memories": memory
-    }
